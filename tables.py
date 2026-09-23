@@ -42,7 +42,8 @@ INSTRUCTION_SET = {
     "BL":  {"class": "branch"},
     "LDR": {"class": "load_store"},
     "STR": {"class": "load_store"},
-    "MUL": {"class": "multiply"}
+    "MUL": {"class": "multiply"},
+    "SVC": {"class": "supervisor"}
 }
 
 OPERAND_TYPE = {
