@@ -1,4 +1,5 @@
 import argparse
+import json
 from tables import *
 
 def read_file(path):
@@ -123,22 +124,29 @@ def encode_data_processing(instruction):
     return word
 
 def encode_branch(instruction, symbol_table, address):
-    if instruction["operands"][0] in symbol_table:
-        target = symbol_table[instruction["operands"][0]]
-    else:
-        raise Exception(f"Undefined label: {instruction['operands'][0]}")
+    if len(instruction["operands"]) != 1:
+        raise Exception(f"{instruction['mnemonic']} expects exactly one label")
+    label = instruction["operands"][0]
     if instruction["mnemonic"] == "BL":
         L = 1
     else:
         L = 0
     Cond = CONDITIONS["AL"]
-    Offset = (target - address - 8) >> 2
     word = 0
     word |= Cond << 28
     word |= 0b101 << 25
     word |= L << 24
-    word |= Offset & 0xFFFFFF
-    return word
+    if label in symbol_table:
+        target = symbol_table[label]
+        offset = (target - address - 8) >> 2
+        word |= offset & 0xFFFFFF
+        return word, None
+    relocation = {
+        "offset": address,
+        "type": "ARM_BRANCH24",
+        "symbol": label
+    }
+    return word, relocation
 
 def encode_load_store(instruction):
     ops = instruction["operands"]
@@ -166,13 +174,11 @@ def encode_load_store(instruction):
             Offset = int(ops[3][1:])
         except ValueError:
             raise Exception(f"Invalid offset {ops[3]} in {instruction['mnemonic']}")
-
         if Offset < 0 or Offset > 0xFFF:
             raise Exception(f"Offset out of range (0-4095) in {instruction['mnemonic']}: {Offset}")
     else:
         Offset = 0
     word = 0
-
     word |= Cond << 28
     word |= 0b01 << 26
     word |= I << 25
@@ -211,26 +217,34 @@ def encode_multiply(instruction):
     return word
 
 def encode_instruction(instruction, symbol_table, address):
+    relocation = None
     if instruction["class"] == "data_processing":
         word = encode_data_processing(instruction)
     elif instruction["class"] == "branch":
-        word = encode_branch(instruction, symbol_table, address)
+        return encode_branch(
+            instruction,
+            symbol_table,
+            address
+        )
     elif instruction["class"] == "load_store":
         word = encode_load_store(instruction)
     elif instruction["class"] == "multiply":
         word = encode_multiply(instruction)
     else:
         raise Exception(f"Unsupported instruction class: {instruction['class']}")
-    return word
+    return word, relocation
 
 def second_pass(instructions, symbol_table):
     words = []
+    relocations = []
     address = 0
     for instruction in instructions:
-        word = encode_instruction(instruction, symbol_table, address)
+        word, relocation = encode_instruction(instruction, symbol_table, address)
         words.append(word)
+        if relocation is not None:
+            relocations.append(relocation)
         address += 4
-    return words
+    return words, relocations
 
 def write_binary(words, output_path):
     with open(output_path, "wb") as f:
@@ -239,18 +253,42 @@ def write_binary(words, output_path):
             f.write(bytes_data)
     return output_path
 
-def assemble(input_path, output_path):
+def write_object(words, symbol_table, relocations, obj_path):
+    code = bytearray()
+    for word in words:
+        code.extend(word.to_bytes(4, byteorder="little"))
+    obj_data = {
+        "format": "PYARMOBJ1",
+        "architecture": "ARM32",
+        "endianness": "little",
+        "code": code.hex(),
+        "symbols": symbol_table,
+        "relocations": relocations
+    }
+    with open(obj_path, "w") as f:
+        json.dump(obj_data, f, indent=4)
+    return obj_path
+
+def assemble(input_path, output_path, obj_path):
     tokens = read_file(input_path)
     symbol_table = first_pass(tokens)
     instructions = parse_instruction(tokens)
-    words = second_pass(instructions, symbol_table)
-    output = write_binary(words, output_path)
-    return output
+    words, relocations = second_pass(instructions, symbol_table)
+    write_object(words, symbol_table, relocations, obj_path)
+    if not relocations:
+        write_binary(words, output_path)
+        return f"Generated {output_path} and {obj_path}"
+    return f"Generated {obj_path}. Binary not generated because linking is required."
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input", help="Input assembly file")
     parser.add_argument("--output", default="output.bin")
     args = parser.parse_args()
-    result = assemble(args.input, args.output)
+    bin_output = args.output
+    if bin_output.endswith(".bin"):
+        obj_output = bin_output[:-4] + ".obj"
+    else:
+        obj_output = bin_output + ".obj"
+    result = assemble(args.input, bin_output, obj_output)
     print(result)
