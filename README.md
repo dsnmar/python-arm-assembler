@@ -15,6 +15,7 @@ It supports a subset of ARM instructions including:
 - Branch instructions (B, BL)
 - Load/store instructions (LDR, STR)
 - Multiply instruction (MUL)
+- Supervisor call instruction (SVC)
 
 The assembler performs two passes:
 
@@ -30,6 +31,7 @@ The assembler performs two passes:
 - Custom `PYARMOBJ1` object file generation
 - Symbol table generation
 - ARM branch relocation support for B and BL
+- ARM `SVC` instruction with immediate operand support
 - Error handling for invalid syntax and operands
 
 ## Notes
@@ -40,7 +42,7 @@ The assembler performs two passes:
 - `.bin` output is raw machine code (not an executable ELF)
 - `.obj` uses the custom `PYARMOBJ1` format, not ELF or COFF
 
-## How to run ?
+## How to run
 ```
 python assembler.py input.asm --output output.bin
 ```
