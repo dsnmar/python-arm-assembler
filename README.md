@@ -44,4 +44,4 @@ The assembler performs two passes:
 ```
 python assembler.py input.asm --output output.bin
 ```
-The assembler also generates a corresponding `.obj` file containing machine code, symbols and relocation information.
+The assembler always generates a corresponding `.obj` file containing machine code, symbols and relocation information. A `.bin` file is generated only when no unresolved relocations remain.
