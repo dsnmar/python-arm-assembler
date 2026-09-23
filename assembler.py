@@ -67,6 +67,26 @@ def parse_instruction(tokens_lines):
         instructions.append(instruction)
     return instructions
 
+def encode_supervisor(instruction):
+    ops = instruction["operands"]
+    if len(ops) != 1:
+        raise Exception(f"SVC expects one immediate operand, got {ops}")
+    immediate = ops[0]
+    if not immediate.startswith("#"):
+        raise Exception(f"SVC expects an immediate operand, got {immediate}")
+    try:
+        immediate = int(immediate[1:])
+    except ValueError:
+        raise Exception(f"Invalid SVC immediate: {immediate}")
+    if immediate < 0 or immediate > 0xFFFFFF:
+        raise Exception(f"SVC immediate out of range: {immediate}")
+    Cond = CONDITIONS["AL"]
+    word = 0
+    word |= Cond << 28
+    word |= 0b1111 << 24
+    word |= immediate & 0xFFFFFF
+    return word
+
 def encode_data_processing(instruction):
     mnemonic = instruction["mnemonic"]
     ops = instruction["operands"]
@@ -230,6 +250,8 @@ def encode_instruction(instruction, symbol_table, address):
         word = encode_load_store(instruction)
     elif instruction["class"] == "multiply":
         word = encode_multiply(instruction)
+    elif instruction["class"] == "supervisor":
+        word = encode_supervisor(instruction)
     else:
         raise Exception(f"Unsupported instruction class: {instruction['class']}")
     return word, relocation
