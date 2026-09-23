@@ -2,8 +2,8 @@
 
 Assembler for ARM assembly language.
 
-An assembler is a program that translates assembly code into machine code (binary).
-Given an ARM assembly input, this assembler generates a raw binary output file.
+An assembler is a program that translates assembly code into machine code (binary). 
+Given an ARM assembly input, this assembler generates a raw binary file and a custom relocatable object file.
 ```
 MOV R0, #5   # assembly
 E3A00005     # binary (hex)
@@ -19,7 +19,7 @@ It supports a subset of ARM instructions including:
 The assembler performs two passes:
 
 - First pass: builds a symbol table (labels → addresses)
-- Second pass: encodes instructions into 32-bit machine code
+- Second pass: encodes instructions into 32-bit machine code and generates relocation entries for unresolved branch symbols
 
 ## Features
 
@@ -27,6 +27,9 @@ The assembler performs two passes:
 - Immediate and register operands
 - Basic memory addressing: [Rn] and [Rn, #imm]
 - Binary output in little-endian format
+- Custom `PYARMOBJ1` object file generation
+- Symbol table generation
+- ARM branch relocation support for B and BL
 - Error handling for invalid syntax and operands
 
 ## Notes
@@ -34,9 +37,11 @@ The assembler performs two passes:
 - Only a subset of ARM instructions is supported
 - Only condition AL is implemented
 - Immediate encoding is simplified
-- Output is raw binary (not executable ELF)
+- `.bin` output is raw machine code (not an executable ELF)
+- `.obj` uses the custom `PYARMOBJ1` format, not ELF or COFF
 
 ## How to run ?
 ```
 python assembler.py input.asm --output output.bin
 ```
+The assembler also generates a corresponding `.obj` file containing machine code, symbols and relocation information.
